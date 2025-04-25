@@ -11,7 +11,7 @@ test:
   image: python:3.9-slim
   script:
     - pip install -r requirements.txt
-    - pytest /tests
+    - pytest ./tests
   only:
     - branches
 
