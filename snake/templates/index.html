@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Играть{% endblock %}
+
+{% block content %}
+<div class="game-container">
+    <div class="game-info">
+        <div class="score">Счет: <span id="current-score">0</span></div>
+        <div class="high-score">Рекорд: <span id="high-score">0</span></div>
+    </div>
+    <canvas id="game-canvas" width="400" height="400"></canvas>
+    <div class="controls">
+        <p>Управление: стрелки или WASD</p>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/game.js') }}"></script>
+{% endblock %}

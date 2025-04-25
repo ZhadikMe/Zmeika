@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Лидерборд{% endblock %}
+
+{% block content %}
+<div class="leaderboard">
+    <h2>Топ 10 игроков</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Место</th>
+                <th>Имя</th>
+                <th>Рекорд</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in range(scores|length) %}
+            <tr>
+                <td>{{ i + 1 }}</td>
+                <td>{{ scores[i].username }}</td>
+                <td>{{ scores[i].max_score }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3">Пока нет результатов</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('index') }}" class="btn">Назад к игре</a>
+</div>
+{% endblock %}
