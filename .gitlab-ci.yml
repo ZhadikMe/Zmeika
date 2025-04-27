@@ -15,8 +15,6 @@ test:
     - pytest ./tests
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
-  tags:
-    - windows
 
 build:
   stage: build
