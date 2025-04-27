@@ -5,6 +5,8 @@ stages:
 
 variables:
   DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_TLS_CERTDIR: ""
 
 test:
   stage: test
@@ -22,9 +24,9 @@ build:
   stage: build
   image: docker:latest
   services:
-    - name: docker:dind
-      alias: docker
-      command: ["--tls=false", "--host", "tcp://0.0.0.0:2375"]
+    - docker:dind
+  before_script:
+    - docker info
   script:
     - cd snake
     - docker build -t snake-app .
@@ -39,6 +41,8 @@ deploy:
   image: docker:latest
   services:
     - docker:dind
+  before_script:
+    - docker info
   script:
     - docker pull $CI_REGISTRY_IMAGE:latest
     - docker run -d -p 5000:5000 $CI_REGISTRY_IMAGE:latest
