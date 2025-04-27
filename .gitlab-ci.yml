@@ -47,7 +47,9 @@ deploy:
     - docker pull $CI_REGISTRY_IMAGE:latest
     - docker run -d -p 5000:5000 $CI_REGISTRY_IMAGE:latest
     - docker ps
-    - IP_ADDRESS=$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
-    - echo "Application is running at http://${IP_ADDRESS}:5000"
+    - ipconfig
+    - docker tag snake-app $CI_REGISTRY_IMAGE:latest
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $CI_REGISTRY_IMAGE:latest
   tags:
     - docker
