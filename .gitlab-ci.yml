@@ -13,8 +13,10 @@ test:
     - cd snake
     - pip install -r requirements.txt
     - pytest ./tests
-  only:
-    - branches
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+  tags:
+    - windows
 
 build:
   stage: build
