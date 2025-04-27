@@ -22,7 +22,9 @@ build:
   stage: build
   image: docker:latest
   services:
-    - docker:dind
+    - name: docker:dind
+      alias: docker
+      command: ["--tls=false", "--host", "tcp://0.0.0.0:2375"]
   script:
     - cd snake
     - docker build -t snake-app .
