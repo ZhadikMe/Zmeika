@@ -47,6 +47,7 @@ deploy:
     - docker pull $CI_REGISTRY_IMAGE:latest
     - docker run -d -p 5000:5000 $CI_REGISTRY_IMAGE:latest
     - docker ps
-    - echo "Application is running at http://$(hostname -I | awk '{print $1}'):5000"
+    - IP_ADDRESS=$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+    - echo "Application is running at http://${IP_ADDRESS}:5000"
   tags:
     - docker
