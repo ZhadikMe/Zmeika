@@ -12,6 +12,7 @@ test:
   stage: test
   image: python:3.9-slim
   script:
+    - cd snake
     - pip install -r requirements.txt
     - pytest ./tests
   rules:
