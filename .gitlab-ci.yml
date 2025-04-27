@@ -44,6 +44,6 @@ deploy:
   before_script:
     - docker info
   script:
-    - ssh -i $SSH_PRIVATE_KEY ubuntuuser@81.94.155.54 "cd /snake-game && git pull origin main && docker-compose down && docker-compose up -d"
+    - ssh -i $KLUCH ubuntuuser@81.94.155.54 "cd /snake-game && git pull origin main && docker-compose down && docker-compose up -d"
   tags:
     - docker
