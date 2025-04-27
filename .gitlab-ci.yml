@@ -16,6 +16,8 @@ test:
     - pytest ./tests
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
+  tags:
+    - docker
 
 build:
   stage: build
