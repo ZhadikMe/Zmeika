@@ -5,6 +5,8 @@ stages:
 
 variables:
   DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_TLS_CERTDIR: ""
 
 test:
   stage: test
@@ -13,30 +15,35 @@ test:
     - cd snake
     - pip install -r requirements.txt
     - pytest ./tests
-  only:
-    - branches
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+  tags:
+    - docker
 
 build:
   stage: build
   image: docker:latest
   services:
     - docker:dind
+  before_script:
+    - docker info
   script:
-    - cd snake
-    - docker build -t snake-app .
-    - docker tag snake-app $CI_REGISTRY_IMAGE:latest
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker push $CI_REGISTRY_IMAGE:latest
-  only:
-    - main
+     - cd snake
+     - docker build -t snake-app .
+     - docker tag snake-app $CI_REGISTRY_IMAGE:latest
+     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+     - docker push $CI_REGISTRY_IMAGE:latest
+  tags:
+    - docker
 
 deploy:
   stage: deploy
   image: docker:latest
   services:
     - docker:dind
+  before_script:
+    - docker info
   script:
-    - docker pull $CI_REGISTRY_IMAGE:latest
-    - docker run -d -p 5000:5000 $CI_REGISTRY_IMAGE:latest
-  only:
-    - main
+    - ssh -i $SSH_PRIVATE_KEY ubuntuuser@81.94.155.54 "cd /snake-game && git pull origin main && docker-compose down && docker-compose up -d"
+  tags:
+    - docker
