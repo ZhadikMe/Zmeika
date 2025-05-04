@@ -48,7 +48,7 @@ deploy:
     - cp $KNOWN_HOSTS ~/.ssh/known_hosts
     - chmod 644 ~/.ssh/known_hosts
   script:
-    - ssh ubuntuuser@81.94.155.54 "cd snake-game/snake && git pull origin main && docker-compose down && docker-compose up -d"
+    - ssh ubuntuuser@81.94.155.54 "cd snake-game/snake && git pull origin main && docker-compose down && docker-compose up -d --build"
   tags:
     - docker
 
