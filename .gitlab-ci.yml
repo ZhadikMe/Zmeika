@@ -38,12 +38,17 @@ build:
 
 deploy:
   stage: deploy
-  image: docker:latest
-  services:
-    - docker:dind
+  image: alpine:latest
   before_script:
-    - docker info
+    - apk add --no-cache openssh
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - cp $KLUCH ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - cp $KNOWN_HOSTS ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
   script:
-    - ssh -i $KLUCH ubuntuuser@81.94.155.54 "cd /snake-game && git pull origin main && docker-compose down && docker-compose up -d"
+    - ssh ubuntuuser@81.94.155.54 "cd /snake-game && git pull origin main && docker-compose down && docker-compose up -d"
   tags:
     - docker
+
