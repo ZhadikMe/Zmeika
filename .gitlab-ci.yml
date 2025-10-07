@@ -45,7 +45,6 @@ deploy:
     - docker info
   script:
     - cd snake
-    - docker-compose down
     - docker-compose up -d --build
   tags:
     - docker
