@@ -20,9 +20,9 @@ trivy-fs-scan:
     - echo "Installing Trivy version $TRIVY_VERSION"
     - curl -L "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -zxvf -
   script:
-    - echo "🔍 Сканирование файловой системы проекта..."
+    - echo "Сканирование файловой системы проекта..."
     - ./trivy filesystem --exit-code 1 --severity HIGH,CRITICAL .
-    - echo "✅ Файловая система проверена"
+    - echo "Файловая система проверена"
   cache:
     paths:
       - .trivycache/
@@ -77,10 +77,10 @@ trivy-image-scan:
     - export TRIVY_VERSION=$(curl -s "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | jq -r '.tag_name' | sed 's/v//')
     - curl -L "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -zxvf -
   script:
-    - echo "🔍 Сканирование Docker образа $CI_REGISTRY_IMAGE:latest..."
+    - echo "Сканирование Docker образа $CI_REGISTRY_IMAGE:latest..."
     - ./trivy image --exit-code 0 --format table $CI_REGISTRY_IMAGE:latest
     - ./trivy image --exit-code 1 --severity CRITICAL $CI_REGISTRY_IMAGE:latest
-    - echo "✅ Docker образ проверен"
+    - echo "Docker образ проверен"
   dependencies:
     - build
   tags:
@@ -99,9 +99,9 @@ deploy:
     - powershell.exe -Command "Test-Path .\deploy.ps1"
   script:
     - powershell.exe -ExecutionPolicy Bypass -File .\deploy.ps1
-    - echo "✅ Деплой завершен успешно"
+    - echo "Деплой завершен успешно"
   after_script:
-    - echo "📊 Финальная информация о деплое"
+    - echo "Финальная информация о деплое"
     - powershell.exe -Command "Get-Date"
   only:
     - main
