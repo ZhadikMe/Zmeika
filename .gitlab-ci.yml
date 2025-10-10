@@ -1,5 +1,5 @@
 stages:
-  - security-scan
+  - security-scan  
   - test
   - build
   - deploy
@@ -10,7 +10,7 @@ variables:
   TRIVY_NO_PROGRESS: "true"
   TRIVY_CACHE_DIR: ".trivycache/"
 
-# Сканирование файловой системы с Trivy
+# Trivy
 trivy-fs-scan:
   stage: security-scan
   image: alpine:latest
@@ -26,12 +26,18 @@ trivy-fs-scan:
   cache:
     paths:
       - .trivycache/
-  allow_failure: false
+  artifacts:
+    when: always
+    reports:
+      container_scanning: trivy-fs-report.json
+    paths:
+      - trivy-fs-report.json
+  allow_failure: false  # Остановить пайплайн при критических уязвимостях
   tags:
     - docker
 
-# 2. Сканирование конфигураций с Trivy
-trivy-config-scan:
+# Сканирование файловой системы с Trivy
+trivy-fs-scan:
   stage: security-scan
   image: alpine:latest
   before_script:
@@ -40,9 +46,9 @@ trivy-config-scan:
     - echo "Installing Trivy version $TRIVY_VERSION"
     - curl -L "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -zxvf -
   script:
-    - echo "🔍 Сканирование конфигураций (Dockerfile)"
-    - ./trivy config --exit-code 1 --severity HIGH,CRITICAL .
-    - echo "✅ Конфигурации проверены"
+    - echo "🔍 Сканирование файловой системы проекта..."
+    - ./trivy filesystem --exit-code 1 --severity HIGH,CRITICAL .
+    - echo "✅ Файловая система проверена"
   cache:
     paths:
       - .trivycache/
@@ -80,9 +86,10 @@ build:
   tags:
     - docker
 
+
 # 5. Сканирование Docker образа после сборки c Trivy
 trivy-image-scan:
-  stage: deploy
+  stage: deploy  
   image: alpine:latest
   services:
     - name: docker:dind
@@ -96,6 +103,7 @@ trivy-image-scan:
     - curl -L "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -zxvf -
   script:
     - echo "🔍 Сканирование Docker образа $CI_REGISTRY_IMAGE:latest..."
+    # Сканировать образ из registry
     - ./trivy image --exit-code 0 --format table $CI_REGISTRY_IMAGE:latest
     - ./trivy image --exit-code 1 --severity CRITICAL $CI_REGISTRY_IMAGE:latest
     - echo "✅ Docker образ проверен"
@@ -128,3 +136,4 @@ deploy:
   dependencies:
     - build
     - trivy-image-scan
+
