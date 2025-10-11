@@ -47,21 +47,14 @@ sonarqube-check:
     paths:
       - .sonar/cache
   script:
-    - sonar-scanner \
-        -Dsonar.projectKey="${CI_PROJECT_NAME}" \
-        -Dsonar.projectName="${CI_PROJECT_NAME}" \
-        -Dsonar.projectVersion="${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" \
-        -Dsonar.sources=. \
-        -Dsonar.exclusions="**/*.md,**/*.txt,**/*.json,**/tests/**,**/.git/**" \
-        -Dsonar.host.url="${SONAR_HOST_URL}" \
-        -Dsonar.login="${SONAR_TOKEN}" \
-        -Dsonar.qualitygate.wait=true
+    - sonar-scanner -Dsonar.projectKey="${CI_PROJECT_NAME}" -Dsonar.projectName="${CI_PROJECT_NAME}" -Dsonar.projectVersion="${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" -Dsonar.sources=. -Dsonar.exclusions="**/*.md,**/*.txt,**/*.json,**/tests/**,**/.git/**" -Dsonar.host.url="${SONAR_HOST_URL}" -Dsonar.login="${SONAR_TOKEN}" -Dsonar.qualitygate.wait=true
   allow_failure: false
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_MERGE_REQUEST_ID
   tags:
     - docker
+
 
 
 # 3. Тесты
