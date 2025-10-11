@@ -49,24 +49,15 @@ sonarqube-check:
   before_script:
     - apk add --no-cache python3 python3-dev py3-pip
     - echo "Подготовка к анализу SonarQube..."
-    - echo "Проект: ${CI_PROJECT_NAME}"
-    - echo "Ветка: ${CI_COMMIT_REF_NAME}"
-    - echo "Коммит: ${CI_COMMIT_SHA}"
+    - echo "Проект ${CI_PROJECT_NAME}"
+    - echo "Ветка ${CI_COMMIT_REF_NAME}"
+    - echo "Коммит ${CI_COMMIT_SHA}"
   script:
     - echo "Запуск анализа кода с SonarQube..."
-    - sonar-scanner 
-        -Dsonar.projectKey="${CI_PROJECT_NAME}"
-        -Dsonar.projectName="${CI_PROJECT_NAME}" 
-        -Dsonar.projectVersion="${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}"
-        -Dsonar.sources=.
-        -Dsonar.exclusions="**/*.md,**/*.txt,**/*.json,**/tests/**,**/.git/**"
-        -Dsonar.python.coverage.reportPaths=""
-        -Dsonar.host.url="${SONAR_HOST_URL}"
-        -Dsonar.login="${SONAR_TOKEN}"
-        -Dsonar.qualitygate.wait=true
+    - sonar-scanner -Dsonar.projectKey="${CI_PROJECT_NAME}" -Dsonar.projectName="${CI_PROJECT_NAME}" -Dsonar.projectVersion="${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}" -Dsonar.sources=. -Dsonar.exclusions="**/*.md,**/*.txt,**/*.json,**/tests/**,**/.git/**" -Dsonar.python.coverage.reportPaths="" -Dsonar.host.url="${SONAR_HOST_URL}" -Dsonar.login="${SONAR_TOKEN}" -Dsonar.qualitygate.wait=true
     - echo "Анализ SonarQube завершен"
   after_script:
-    - echo "Результаты анализа доступны в SonarQube: ${SONAR_HOST_URL}"
+    - echo "Результаты анализа доступны в SonarQube ${SONAR_HOST_URL}"
   allow_failure: false
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
