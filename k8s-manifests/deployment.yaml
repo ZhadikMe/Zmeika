@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snake-game
+  namespace: app-production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snake-game
+  template:
+    metadata:
+      labels:
+        app: snake-game
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000" 
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        fsGroup: 999
+        runAsNonRoot: true
+        runAsUser: 999
+      
+      containers:
+      - name: snake-game
+        image: 172.18.0.2:30482/snake-game:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - name: http
+          containerPort: 5000
+          protocol: TCP
+        - name: metrics  
+          containerPort: 8000
+          protocol: TCP
+        
+        env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: snake-config
+              key: FLASK_ENV
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: snake-secrets
+              key: SECRET_KEY
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: snake-config
+              key: DATABASE_URL
+        
+        volumeMounts:
+        - name: db-storage
+          mountPath: /app/instance
+        
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http 
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http  
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      
+      volumes:
+      - name: db-storage
+        persistentVolumeClaim:
+          claimName: snake-db-pvc

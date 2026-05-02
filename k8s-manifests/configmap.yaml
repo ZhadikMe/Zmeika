@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: snake-config
+  namespace: app-production
+data:
+  FLASK_ENV: "production"
+  DATABASE_URL: "sqlite:////app/instance/database.db"

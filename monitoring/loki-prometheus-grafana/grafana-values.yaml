@@ -1,0 +1,87 @@
+adminUser: admin
+adminPassword: "changeme-please-change-this-password"
+replicas: 1
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+persistence:
+  enabled: true
+  type: pvc
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+
+grafana.ini:
+  server:
+    root_url: http://localhost:3000
+    serve_from_sub_path: false
+  
+  log:
+    level: info
+    mode: console
+  
+  users:
+    allow_sign_up: false
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-stack-kube-prom-prometheus:9090
+        access: proxy
+        isDefault: false
+      
+      - name: Loki
+        type: loki
+        url: http://loki-gateway:80
+        access: proxy
+        isDefault: true
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        updateIntervalSeconds: 10
+        allowUiUpdates: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    kubernetes-cluster:
+      gnetId: 7249
+      revision: 1
+      datasource: Prometheus
+    
+    kubernetes-pods:
+      gnetId: 6417
+      revision: 1
+      datasource: Prometheus
+    
+    node-exporter-full:
+      gnetId: 1860
+      revision: 23
+      datasource: Prometheus
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+serviceAccount:
+  create: true
+  name: grafana

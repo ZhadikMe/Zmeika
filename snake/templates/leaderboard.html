@@ -1,32 +1,44 @@
-{% extends "base.html" %}
-
-{% block title %}Лидерборд{% endblock %}
-
-{% block content %}
-<div class="leaderboard">
-    <h2>Топ 10 игроков</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Место</th>
-                <th>Имя</th>
-                <th>Рекорд</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for i in range(scores|length) %}
-            <tr>
-                <td>{{ i + 1 }}</td>
-                <td>{{ scores[i].username }}</td>
-                <td>{{ scores[i].max_score }}</td>
-            </tr>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Таблица лидеров - Snake Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="leaderboard">
+            <h2 class="leaderboard-title">🏆 Таблица лидеров</h2>
+            
+            {% if scores %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Место</th>
+                        <th>Игрок</th>
+                        <th>Рекорд</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for score in scores %}
+                    <tr>
+                        <td>{{ score.rank }}</td>
+                        <td>{{ score.username }}</td>
+                        <td>{{ score.max_score }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% else %}
-            <tr>
-                <td colspan="3">Пока нет результатов</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <a href="{{ url_for('index') }}" class="btn">Назад к игре</a>
-</div>
-{% endblock %}
+            <div style="text-align: center; color: #999; padding: 30px;">
+                <p>Пока нет рекордов. Будьте первым! 🎮</p>
+            </div>
+            {% endif %}
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="{{ url_for('index') }}" class="btn">Назад в игру</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

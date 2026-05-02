@@ -1,93 +1,446 @@
-# Snake-game
+# Snake Game — DevOps Portfolio Project
 
+Flask-приложение «Змейка» с полным DevOps-стеком: CI/CD, контейнеризация, оркестрация в Kubernetes, мониторинг и runtime security.
 
+![Python](https://img.shields.io/badge/Python-3.9-blue)
+![Flask](https://img.shields.io/badge/Flask-3.x-lightgrey)
+![Docker](https://img.shields.io/badge/Docker-latest-blue)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-kind-326CE5)
+![GitLab CI](https://img.shields.io/badge/GitLab_CI-8_stages-orange)
+![Prometheus](https://img.shields.io/badge/Prometheus-kube--prometheus--stack-red)
+![Grafana](https://img.shields.io/badge/Grafana-Helm-orange)
+![Loki](https://img.shields.io/badge/Loki-log_aggregation-yellow)
 
-## Getting started
+---
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Архитектурная схема
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+```mermaid
+flowchart TD
+    DEV[git push → main] --> GL[GitLab CI]
 
-## Add your files
+    GL --> S1[security-scan\ntrivy-fs-scan]
+    S1 --> S2[code-quality\nsonarqube-check]
+    S2 --> S3[test\npytest]
+    S3 --> S4[build\ndocker build + push]
+    S4 --> S5[scan\ntrivy-image-scan]
+    S5 --> S6[deploy\ndeploy-k8s]
+    S6 --> S7[monitor\nhealth-check]
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+    S4 -->|push image| REG[Local Registry\n172.18.0.2:30482]
+    REG -->|pull| K8S
+
+    subgraph K8S[Kubernetes — namespace: app-production]
+        DEP[Deployment: snake-game\n1 replica]
+        SVC[Service: NodePort :30000]
+        PVC[PVC: snake-db-pvc 1Gi]
+        CFG[ConfigMap: snake-config]
+        SEC[Secret: snake-secrets]
+        SM[ServiceMonitor]
+        DEP --> SVC
+        DEP --> PVC
+        DEP --> CFG
+        DEP --> SEC
+        SM --> DEP
+    end
+
+    subgraph FALCO[Falco — namespace: falco]
+        FDS[DaemonSet: falco\nruntime security]
+    end
+
+    subgraph MON[Monitoring Stack — Helm]
+        PROM[Prometheus\nretention: 7d / 10GB]
+        AM[Alertmanager\n→ Slack #alerts]
+        GRAF[Grafana :3000\ndashboards 7249, 6417, 1860]
+        LOKI[Loki\nfilesystem storage]
+        PT[Promtail\nkubernetes-pods-logs]
+        PROM --> AM
+        PT --> LOKI
+        LOKI --> GRAF
+        PROM --> GRAF
+    end
+
+    SM -->|scrape /metrics :8000| PROM
+    K8S --> PT
+```
+
+---
+
+## Стек
+
+| Инструмент | Вариант / версия | Назначение |
+|---|---|---|
+| Python | 3.9-slim | Runtime приложения |
+| Flask | 3.x | Web-фреймворк |
+| Flask-WTF | 1.2.1 | CSRF-защита форм |
+| Flask-Limiter | 3.5.1 | Rate limiting запросов |
+| prometheus-client | 0.19.0 | Экспорт метрик на :8000/metrics |
+| SQLite | встроенный | База данных (лидерборд, пользователи) |
+| Docker | latest | Контейнеризация |
+| kind | local | Локальный Kubernetes-кластер |
+| Local Registry | 172.18.0.2:30482 | Хранилище образов для kind |
+| GitLab CI | — | 8-стадийный pipeline |
+| Trivy | aquasec/trivy:latest | Сканирование FS и Docker-образов |
+| SonarQube | sonarsource/sonar-scanner-cli:latest | Статический анализ кода |
+| Prometheus | kube-prometheus-stack (Helm) | Сбор метрик, retention 7d |
+| Alertmanager | kube-prometheus-stack (Helm) | Роутинг алертов в Slack |
+| Grafana | Helm, PVC 10Gi | Дашборды |
+| Loki | Helm, SimpleScalable | Агрегация логов, хранение на FS |
+| Promtail | Helm | Сбор логов с kubernetes-pods |
+| Falco | falcosecurity/falco:latest | Runtime security (DaemonSet) |
+| node-exporter | kube-prometheus-stack | Метрики узлов |
+| kube-state-metrics | kube-prometheus-stack | Метрики объектов K8s |
+
+---
+
+## CI/CD Pipeline
+
+8 стадий, запускаются последовательно на `main`.
+
+### 1. `security-scan` — `trivy-fs-scan`
+
+```bash
+trivy fs --exit-code 1 --severity HIGH,CRITICAL .
+```
+
+Сканирует файловую систему репозитория образом `aquasec/trivy:latest`. При обнаружении HIGH/CRITICAL уязвимостей — pipeline падает (`allow_failure: false`). Результаты кешируются в `.trivycache/`.
+
+### 2. `code-quality` — `sonarqube-check`
+
+```bash
+sonar-scanner \
+  -Dsonar.sources=snake/ \
+  -Dsonar.tests=snake/tests \
+  -Dsonar.test.inclusions="**/test_*.py" \
+  -Dsonar.qualitygate.wait=true \
+  -Dsonar.host.url="${SONAR_HOST_URL}" \
+  -Dsonar.login="${SONAR_TOKEN}"
+```
+
+Запускается на `main` и при MR. Блокирует pipeline при непрохождении Quality Gate (`sonar.qualitygate.wait=true`). Артефакт: `gl-sonar.json` (CodeQuality report).
+
+### 3. `test` — `test`
+
+```bash
+cd snake && pip install -r requirements.txt
+python -m pytest tests/ -q
+```
+
+Образ `python:3.9-slim`. Артефакт: `snake/coverage_report/` (TTL 1 week).
+
+### 4. `build` — `build`
+
+```bash
+docker build -t 172.18.0.2:30482/snake-game:${CI_COMMIT_SHA} .
+docker push 172.18.0.2:30482/snake-game:${CI_COMMIT_SHA}
+docker push 172.18.0.2:30482/snake-game:latest
+```
+
+Docker-in-Docker (`docker:dind`). Образ тегируется commit SHA и `latest`, пушится в локальный registry кластера. Запускается только на `main`.
+
+### 5. `scan` — `trivy-image-scan`
+
+```bash
+trivy image --exit-code 0 --format table 172.18.0.2:30482/snake-game:latest
+trivy image --exit-code 1 --severity CRITICAL 172.18.0.2:30482/snake-game:latest
+```
+
+Сначала выводит полную таблицу уязвимостей (exit-code 0), затем проверяет только CRITICAL — при наличии pipeline падает.
+
+### 6. `deploy` — `deploy-k8s`
+
+```bash
+kubectl set image deployment/snake-game snake-game=172.18.0.2:30482/snake-game:${CI_COMMIT_SHA} \
+  -n app-production
+kubectl rollout status deployment/snake-game -n app-production --timeout=5m
+```
+
+Образ `bitnami/kubectl:latest`. `KUBE_CONFIG` передаётся через переменную CI (base64). Rolling update с ожиданием завершения rollout.
+
+### 7–8. `monitor` — `health-check`
+
+```bash
+kubectl get pods -n app-production
+kubectl get svc -n app-production
+```
+
+Проверка состояния после деплоя. `allow_failure: true` — не блокирует pipeline при недоступности кластера.
+
+---
+
+## Security
+
+### Trivy — сканирование файловой системы
+
+- Запускается на каждый push, стадия `security-scan`
+- `--severity HIGH,CRITICAL --exit-code 1` — блокирует pipeline
+
+### Trivy — сканирование образа
+
+- Запускается после build, стадия `scan`
+- Полный отчёт (все severity) + отдельная проверка только CRITICAL с exit-code 1
+
+### SonarQube
+
+- Проект: `snake-game`, sources: `snake/`
+- Quality Gate блокирует pipeline (`sonar.qualitygate.wait=true`)
+- Исключения: `__pycache__`, `*.pyc`
+
+### Falco — runtime security
+
+DaemonSet в namespace `falco`. Монтирует хост-ресурсы для доступа к системным вызовам:
+
+```yaml
+hostNetwork: true
+hostPID: true
+hostIPC: true
+securityContext:
+  privileged: true
+volumeMounts:
+  - /var/run/docker.sock
+  - /sys
+  - /lib/modules
+  - /usr
+  - /etc
+```
+
+Правила загружаются из `/etc/falco/rules.d`. Детектирует аномальную активность на уровне ядра (syscall-мониторинг).
+
+### Kubernetes Security Context
+
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  fsGroup: 999
+```
+
+В Dockerfile: создаётся `appuser` (UID 999), контейнер запускается от non-root.
+
+### Application Security
+
+- CSRF-защита через `flask-wtf` на всех формах
+- Rate limiting через `flask-limiter`
+- IP-based brute force protection с экспоненциальным блокированием (60s → 300s → 900s → 1800s)
+- `SESSION_COOKIE_HTTPONLY: True`, `SESSION_COOKIE_SAMESITE: Lax`
+- `SECRET_KEY` из environment variable (`os.environ.get`)
+
+---
+
+## Kubernetes
+
+### Namespace
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/testone9543417/snake-game.git
-git branch -M main
-git push -uf origin main
+app-production
 ```
 
-## Integrate with your tools
+### Deployment: `snake-game`
 
-- [ ] [Set up project integrations](https://gitlab.com/testone9543417/snake-game/-/settings/integrations)
+| Параметр | Значение |
+|---|---|
+| Реплики | 1 |
+| Image | `172.18.0.2:30482/snake-game:latest` |
+| `runAsNonRoot` | true |
+| `runAsUser` | 999 |
+| CPU request/limit | 100m / 500m |
+| Memory request/limit | 128Mi / 512Mi |
+| Port app | 5000 (http) |
+| Port metrics | 8000 (metrics) |
 
-## Collaborate with your team
+**Liveness probe:**
+```yaml
+httpGet:
+  path: /
+  port: http
+initialDelaySeconds: 10
+periodSeconds: 10
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+**Readiness probe:**
+```yaml
+httpGet:
+  path: /
+  port: http
+initialDelaySeconds: 5
+periodSeconds: 5
+```
 
-## Test and Deploy
+### Service
 
-Use the built-in continuous integration in GitLab.
+```
+Type: NodePort
+Port: 80 → targetPort: 5000 → nodePort: 30000
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### PersistentVolumeClaim
 
-***
+```
+name: snake-db-pvc
+namespace: app-production
+accessModes: ReadWriteOnce
+storage: 1Gi
+mountPath: /app/instance  (SQLite БД)
+```
 
-# Editing this README
+### ConfigMap: `snake-config`
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```
+FLASK_ENV: production
+DATABASE_URL: sqlite:////app/instance/database.db
+```
 
-## Suggestions for a good README
+### Secret: `snake-secrets`
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+```
+SECRET_KEY  (Flask secret, передаётся через CI variable)
+```
 
-## Name
-Choose a self-explaining name for your project.
+### ServiceMonitor
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```yaml
+kind: ServiceMonitor
+namespace: app-production
+labels:
+  release: prometheus-stack
+endpoints:
+  - path: /metrics
+    interval: 15s
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+---
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+## Мониторинг
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### Prometheus
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Задеплоен через Helm-chart `kube-prometheus-stack`.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+**Конфигурация:**
+- `retention: 7d`, `retentionSize: 10GB`
+- WAL-компрессия включена (`walCompression: true`)
+- `queryMaxConcurrency: 20`
+- Scrape targets: `prometheus:9090`, `snake-app:5000/metrics` (через ServiceMonitor)
+- CPU request/limit: 500m / 1000m; Memory: 2Gi / 4Gi
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+**Алерты (`monitoring/rules.yml`):**
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+| Alert | Условие | Задержка | Severity |
+|---|---|---|---|
+| `SnakeGameDown` | `up{job='snake-app'} == 0` | 1m | critical |
+| `HighMemoryUsage` | `container_memory_usage_bytes{name='snake-game'} > 400000000` | 5m | warning |
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Alertmanager
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Задеплоен в составе `kube-prometheus-stack`.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```yaml
+route:
+  receiver: 'default'
+  group_by: ['alertname']
+receivers:
+  - name: 'default'
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#alerts'
+```
 
-## License
-For open source projects, say how it is licensed.
+Уведомления: **Telegram** (настроено через Helm values Alertmanager с `telegram_configs`). Конфиг в репозитории содержит заглушку Slack — рабочий Telegram-конфиг передаётся через CI переменные при деплое.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+### Loki + Promtail
+
+Задеплоены через Helm (SimpleScalable режим).
+
+**Loki:**
+- `auth_enabled: false`
+- `replication_factor: 1`
+- Storage: filesystem
+- Write/Read/Backend: по 1 реплике, PVC 50Gi каждый
+- `reject_old_samples_max_age: 168h`
+
+**Promtail:**
+```yaml
+scrape_configs:
+  - job_name: kubernetes-pods-logs
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - pod name → label: pod
+      - namespace → label: namespace
+      - container name → label: container
+```
+
+Собирает логи со всех pod-ов кластера, пушит в `http://loki:3100/loki/api/v1/push`.
+
+### Grafana
+
+Задеплоена через Helm, PVC 10Gi.
+
+**Источники данных:**
+- Prometheus: `http://prometheus-stack-kube-prom-prometheus:9090` (proxy)
+- Loki: `http://loki-gateway:80` (proxy, default)
+
+**Предустановленные дашборды (из Grafana.com):**
+
+| Dashboard | gnetId | Datasource |
+|---|---|---|
+| Kubernetes Cluster | 7249 | Prometheus |
+| Kubernetes Pods | 6417 | Prometheus |
+| Node Exporter Full | 1860 | Prometheus |
+
+---
+
+## Быстрый старт (локально)
+
+```bash
+git clone <репозиторий>
+cd snake-game
+docker-compose up -d
+# открыть http://localhost:5000
+```
+
+`docker-compose.yml` собирает образ из `snake/Dockerfile` и поднимает приложение на порту 5000.
+
+---
+
+## Скриншоты
+
+### CI/CD Pipeline — архитектура и результат
+
+![Pipeline Architecture](docs/images/pipeline-diagram.png)
+
+![GitLab Pipeline — все стадии пройдены](docs/images/pipeline.png)
+
+### Security Gate — блокировка при провале SonarQube
+
+![SonarQube Quality Gate Failed](docs/images/sonarqube-failed.png)
+
+### Приложение
+
+![Game Interface](docs/images/game.png)
+
+### Мониторинг
+
+**Grafana — метрики pods (CPU, Memory, Network)**
+
+Дашборд показывает потребление ресурсов по всем pod-ам кластера в разрезе namespace. Видны пики сетевой активности во время CI/CD pipeline (сборка образа, пуш в registry, деплой). Данные поступают через Prometheus → ServiceMonitor → `/metrics` на порту 8000.
+
+![Grafana — CPU, Memory, Network по pods](docs/images/grafana-pods.png)
+
+**Grafana — состояние кластера (Disk, Free Space, Pod Conditions, Restarts)**
+
+Дашборд отображает: операции чтения/записи на диск, свободное место (77%), статусы pod-ов (Running/Failed/Pending) и количество рестартов контейнеров. График рестартов фиксирует нестабильность pod-ов во время отладки деплоя.
+
+![Grafana — Disk, Free Space, Pod Conditions, Restarts](docs/images/grafana-cluster.png)
+
+**Loki — агрегированные логи pods**
+
+Promtail собирает stdout/stderr со всех pod-ов кластера и передаёт в Loki. В Grafana логи доступны через datasource Loki с фильтрацией по `namespace`, `pod`, `container`. Позволяет коррелировать логи приложения с метриками на одном дашборде.
+
+![Loki — логи pods](docs/images/loki.png)
+
+**Alertmanager → Telegram — срабатывание алерта `KubePodCrashLooping`**
+
+Алерт сработал при уходе pod `kube-controller-manager-dev-control-plane` в состояние `CrashLoopBackOff`. Alertmanager отправил уведомление в Telegram с указанием severity, namespace, имени pod-а и описанием причины. Задержка срабатывания — согласно правилу в `rules.yml`.
+
+![Telegram — алерт KubePodCrashLooping](docs/images/telegram-alert.png)

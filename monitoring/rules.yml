@@ -1,0 +1,21 @@
+groups:
+  - name: snake_game
+    interval: 30s
+    rules:
+      - alert: SnakeGameDown
+        expr: up{job='snake-app'} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Snake Game is DOWN"
+          description: "Snake Game pod is not responding"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes{name='snake-game'} > 400000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Memory Usage"
+          description: "Snake Game pod using more than 400MB"

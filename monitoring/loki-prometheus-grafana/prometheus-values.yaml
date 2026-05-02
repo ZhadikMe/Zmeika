@@ -1,0 +1,88 @@
+prometheusOperator:
+  enabled: true
+  manageCrds: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 7d
+    retentionSize: "10GB"
+    
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorNamespaceSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleNamespaceSelector: {}
+    kubeStateMetricsSelector: {}
+    kubeletSelector: {}
+    
+    storageSpec:
+      emptyDir: {}
+    
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 1000m
+        memory: 4Gi
+    
+    walCompression: true
+    queryMaxConcurrency: 20
+    queryTimeout: 2m
+
+  service:
+    type: ClusterIP
+    port: 9090
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      emptyDir: {}
+    
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  
+  service:
+    type: ClusterIP
+    port: 9093
+
+nodeExporter:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+kubeStateMetrics:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+grafana:
+  enabled: false
+
+defaultRules:
+  create: true

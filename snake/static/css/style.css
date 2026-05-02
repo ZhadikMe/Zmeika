@@ -2,7 +2,11 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Press Start 2P', cursive;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+                 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
+                 'Helvetica Neue', sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
 }
 
 body {
@@ -17,13 +21,14 @@ body {
     padding: 20px;
 }
 
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 0;
-    border-bottom: 2px solid #444;
-    margin-bottom: 30px;
+h1, h2, h3, 
+.snake-title, 
+.game-title, 
+.leaderboard-title,
+.pixel-font {
+    font-family: 'Press Start 2P', cursive;
+    font-weight: 400;
+    letter-spacing: 1px;
 }
 
 header h1 {
@@ -35,7 +40,7 @@ nav a {
     color: #fff;
     text-decoration: none;
     margin-left: 20px;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     transition: color 0.3s;
 }
 
@@ -59,7 +64,7 @@ nav span {
     display: flex;
     justify-content: space-between;
     width: 400px;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
 }
 
 #game-canvas {
@@ -68,7 +73,7 @@ nav span {
 }
 
 .controls {
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     color: #aaa;
 }
 
@@ -85,6 +90,7 @@ nav span {
     margin-bottom: 20px;
     text-align: center;
     color: #4CAF50;
+    font-size: 1.5rem;
 }
 
 .form-group {
@@ -94,28 +100,31 @@ nav span {
 .form-group label {
     display: block;
     margin-bottom: 5px;
-    font-size: 0.8rem;
+    font-size: 0.95rem;
+    color: #aaa;
 }
 
 .form-group input {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     background-color: #333;
     border: 1px solid #444;
     color: #fff;
     border-radius: 5px;
+    font-size: 16px;
 }
 
 .btn {
     display: inline-block;
-    padding: 10px 20px;
+    padding: 12px 24px;
     background-color: #4CAF50;
     color: #fff;
     text-decoration: none;
     border: none;
     border-radius: 5px;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 1rem;
+    font-weight: 500;
     transition: background-color 0.3s;
 }
 
@@ -132,12 +141,14 @@ nav span {
     text-align: center;
     margin-bottom: 20px;
     color: #4CAF50;
+    font-size: 1.5rem;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
+    font-size: 0.95rem;
 }
 
 th, td {
@@ -148,6 +159,7 @@ th, td {
 
 th {
     background-color: #333;
+    font-weight: 600;
 }
 
 tr:hover {
@@ -162,6 +174,7 @@ tr:hover {
     padding: 10px;
     margin-bottom: 10px;
     border-radius: 5px;
+    font-size: 0.95rem;
 }
 
 .flash.success {
@@ -177,4 +190,18 @@ tr:hover {
 .flash.info {
     background-color: #2196F3;
     color: #fff;
+}
+
+.snake-main-title {
+    font-family: 'Press Start 2P', cursive;
+    color: #4CAF50;
+    font-size: 2rem;
+    text-align: center;
+    margin: 20px 0;
+}
+
+input, textarea, select, button {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+                 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
+                 'Helvetica Neue', sans-serif;
 }
